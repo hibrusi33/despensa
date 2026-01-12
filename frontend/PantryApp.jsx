@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useAuth } from './AuthContext';
+import Auth from './Auth';
 
 // Componentes de Iconos SVG
 const HomeIcon = ({ size = 24, color = "currentColor" }) => (
@@ -75,6 +77,21 @@ const XIcon = ({ size = 24, color = "currentColor" }) => (
   </svg>
 );
 
+const UserIcon = ({ size = 24, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+    <circle cx="12" cy="7" r="4"/>
+  </svg>
+);
+
+const LogOutIcon = ({ size = 24, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+    <polyline points="16 17 21 12 16 7"/>
+    <line x1="21" y1="12" x2="9" y2="12"/>
+  </svg>
+);
+
 const SAMPLE_TICKET = {
   items: [
     { name: 'Leche Semidesnatada', price: 0.95, qty: 2 },
@@ -86,11 +103,13 @@ const SAMPLE_TICKET = {
 };
 
 export default function PantryApp() {
+  const { isAuthenticated, loading, user, logout } = useAuth();
   const [tab, setTab] = useState('home');
   const [scannedTicket, setScannedTicket] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [chatInput, setChatInput] = useState('');
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [messages, setMessages] = useState([
     { from: 'bot', text: '¡Hola! ¿En qué puedo ayudarte hoy?' }
   ]);
@@ -102,6 +121,36 @@ export default function PantryApp() {
     { id: 4, name: 'Huevos', qty: 6, expiry: '2025-01-25', category: 'Frescos' },
     { id: 5, name: 'Pimientos', qty: 3, expiry: '2025-01-15', category: 'Verduras' },
   ]);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f3f4f6'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            border: '4px solid #e5e7eb',
+            borderTop: '4px solid #667eea',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <p style={{ marginTop: '16px', color: '#6b7280' }}>Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login/register if not authenticated
+  if (!isAuthenticated) {
+    return <Auth />;
+  }
 
   const getExpiryStatus = (expiry) => {
     if (!expiry) return null;
@@ -192,11 +241,101 @@ export default function PantryApp() {
       <div style={{
         padding: '20px 20px 16px',
         background: '#fff',
-        borderBottom: '1px solid #eee'
+        borderBottom: '1px solid #eee',
+        position: 'relative'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: -0.5 }}>Despensa</h1>
+            <p style={{ fontSize: 12, color: '#666', margin: '4px 0 0' }}>
+              Hola, {user?.name || 'Usuario'}
+              {user?.subscription_tier && (
+                <span style={{
+                  marginLeft: 8,
+                  padding: '2px 8px',
+                  background: user.subscription_tier === 'free' ? '#e5e7eb' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: user.subscription_tier === 'free' ? '#374151' : 'white',
+                  borderRadius: 12,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  textTransform: 'uppercase'
+                }}>
+                  {user.subscription_tier === 'free' ? 'Free' : user.subscription_tier === 'premium' ? 'Premium' : 'Premium+'}
+                </span>
+              )}
+            </p>
+          </div>
+
+          {/* User Menu Button */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              style={{
+                padding: 8,
+                background: showUserMenu ? '#f3f4f6' : 'transparent',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <UserIcon size={20} color="#374151" />
+            </button>
+
+            {/* User Dropdown Menu */}
+            {showUserMenu && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: 8,
+                background: 'white',
+                borderRadius: 8,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                minWidth: 200,
+                zIndex: 1000
+              }}>
+                <div style={{
+                  padding: '12px 16px',
+                  borderBottom: '1px solid #e5e7eb'
+                }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: '#111827' }}>
+                    {user?.name}
+                  </p>
+                  <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>
+                    {user?.email}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    logout();
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    background: 'none',
+                    border: 'none',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    color: '#dc2626',
+                    fontSize: 14,
+                    fontWeight: 500
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = '#fef2f2'}
+                  onMouseOut={(e) => e.currentTarget.style.background = 'none'}
+                >
+                  <LogOutIcon size={16} color="#dc2626" />
+                  Cerrar Sesión
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
