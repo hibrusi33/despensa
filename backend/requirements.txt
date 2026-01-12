@@ -24,3 +24,13 @@ ollama==0.1.6
 
 # CORS
 fastapi-cors==0.0.6
+
+# Autenticación y seguridad
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+
+# Pagos
+stripe==7.10.0
+
+# Groq API (Premium AI model)
+groq==0.4.2

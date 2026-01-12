@@ -111,9 +111,11 @@ class RAGSystem:
         self.vectorstore.persist()
         print(f"✅ Indexadas {len(recipes)} recetas en ChromaDB")
 
-    async def get_user_inventory(self) -> List[Dict]:
+    async def get_user_inventory(self, user_id: str) -> List[Dict]:
         """Obtiene el inventario actual del usuario"""
-        items = await InventoryItem.find_all().to_list()
+        items = await InventoryItem.find(
+            InventoryItem.user_id == user_id
+        ).to_list()
         return [
             {
                 "name": item.name,
@@ -124,20 +126,26 @@ class RAGSystem:
             for item in items
         ]
 
-    async def find_matching_recipes(self, query: Optional[str] = None) -> List[Dict]:
+    async def find_matching_recipes(self, query: Optional[str] = None, user_id: Optional[str] = None) -> List[Dict]:
         """Encuentra recetas que coincidan con el inventario del usuario"""
         if not self.vectorstore:
             print("⚠️ Vectorstore no inicializado")
             return []
 
-        inventory = await self.get_user_inventory()
+        inventory = []
+        if user_id:
+            inventory = await self.get_user_inventory(user_id)
 
-        if not inventory:
+        if not inventory and not query:
+            # No inventory and no specific query, return empty
             return []
 
-        # Crear query basada en ingredientes disponibles
-        available_ingredients = [item["name"] for item in inventory]
-        search_query = query if query else f"Recetas con {', '.join(available_ingredients[:5])}"
+        # Crear query basada en ingredientes disponibles o query del usuario
+        if inventory:
+            available_ingredients = [item["name"] for item in inventory]
+            search_query = query if query else f"Recetas con {', '.join(available_ingredients[:5])}"
+        else:
+            search_query = query if query else "Recetas recomendadas"
 
         # Buscar recetas similares
         try:
@@ -163,17 +171,20 @@ class RAGSystem:
             print(f"❌ Error en búsqueda vectorial: {e}")
             return []
 
-    async def chat(self, user_message: str, conversation_history: Optional[List[Dict]] = None) -> str:
+    async def chat(self, user_message: str, conversation_history: Optional[List[Dict]] = None, user_id: Optional[str] = None) -> str:
         """Procesa mensaje del usuario con contexto RAG"""
         # Obtener inventario
-        inventory = await self.get_user_inventory()
+        inventory = []
+        if user_id:
+            inventory = await self.get_user_inventory(user_id)
+
         inventory_text = "\n".join([
             f"- {item['name']}: {item['qty']} unidades (Categoría: {item['category']})"
             for item in inventory
         ])
 
         # Buscar recetas relevantes
-        matching_recipes = await self.find_matching_recipes(user_message)
+        matching_recipes = await self.find_matching_recipes(user_message, user_id)
         recipes_context = "\n\n".join([
             f"**{r['recipe_name']}** (Tiempo: {r['cooking_time']}min, Dificultad: {r['difficulty']}, Precio estimado: {r.get('estimated_price', 0)}€)\n{r['content']}"
             for r in matching_recipes[:3]  # Top 3

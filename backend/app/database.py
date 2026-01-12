@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
-from .models import InventoryItem, Recipe, ChatMessage
+from .models import InventoryItem, Recipe, ChatMessage, User, Ticket, MealPlan, UsageStats
 import os
 
 # MongoDB configuration
@@ -22,9 +22,13 @@ async def init_db():
     await init_beanie(
         database=client[MONGODB_DB_NAME],
         document_models=[
+            User,
             InventoryItem,
             Recipe,
-            ChatMessage
+            ChatMessage,
+            Ticket,
+            MealPlan,
+            UsageStats
         ]
     )
 
