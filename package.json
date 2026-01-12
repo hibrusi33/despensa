@@ -1,18 +1,16 @@
 {
-  "name": "despensa-app",
+  "name": "despensa-full-stack",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Full-stack app de gestión de despensa con IA",
+  "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "cd backend && pip install -r requirements.txt",
+    "seed": "cd backend && python seed_data.py"
   },
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.0.8"
-  }
+  "keywords": ["despensa", "inventory", "ai", "rag", "llama"],
+  "author": "",
+  "license": "MIT"
 }

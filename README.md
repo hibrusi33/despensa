@@ -82,8 +82,8 @@ python seed_data.py
 ### 3. Configurar Frontend (React)
 
 ```bash
-# Volver a la raíz
-cd ..
+# Ir a carpeta frontend
+cd frontend
 
 # Instalar dependencias
 npm install
@@ -93,7 +93,24 @@ npm install
 
 ## ▶️ Ejecutar la aplicación
 
-### Terminal 1: Backend
+### Opción A: Comandos rápidos desde la raíz (recomendado)
+
+```bash
+# Instalar dependencias (solo la primera vez)
+npm run install:frontend
+npm run install:backend
+
+# Poblar base de datos (solo la primera vez)
+npm run seed
+
+# En terminales separadas:
+npm run dev:frontend   # Terminal 1
+npm run dev:backend    # Terminal 2
+```
+
+### Opción B: Manualmente
+
+#### Terminal 1: Backend
 
 ```bash
 cd backend
@@ -110,10 +127,13 @@ El backend estará en: http://localhost:8000
 
 Documentación API: http://localhost:8000/docs
 
-### Terminal 2: Frontend
+#### Terminal 2: Frontend
 
 ```bash
-# Desde la raíz del proyecto
+# Ir a carpeta frontend
+cd frontend
+
+# Iniciar servidor de desarrollo
 npm run dev
 ```
 
@@ -152,22 +172,29 @@ El frontend estará en: http://localhost:3000
 
 ```
 despensa/
+├── frontend/                   # Frontend React
+│   ├── PantryApp.jsx          # Componente principal React
+│   ├── main.jsx               # Entry point React
+│   ├── index.html             # HTML base
+│   ├── api.js                 # Cliente API
+│   ├── manifest.json          # PWA manifest
+│   ├── vite.config.js         # Config Vite
+│   ├── package.json           # Dependencias Node
+│   └── node_modules/          # (generado)
+│
 ├── backend/                    # Backend Python
 │   ├── app/
+│   │   ├── __init__.py
 │   │   ├── models.py          # Modelos SQLAlchemy
 │   │   ├── database.py        # Configuración DB
 │   │   └── rag_system.py      # Sistema RAG + LLM
 │   ├── main.py                # FastAPI app
 │   ├── seed_data.py           # Datos iniciales
 │   ├── requirements.txt       # Dependencias Python
-│   └── README.md              # Docs del backend
+│   ├── .env.example           # Template variables entorno
+│   ├── README.md              # Docs del backend
+│   └── venv/                  # (generado)
 │
-├── PantryApp.jsx              # Componente principal React
-├── main.jsx                   # Entry point React
-├── index.html                 # HTML base
-├── api.js                     # Cliente API
-├── vite.config.js             # Config Vite
-├── package.json               # Dependencias Node
 └── README.md                  # Este archivo
 ```
 

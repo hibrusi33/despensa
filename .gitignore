@@ -1,9 +1,9 @@
-# Dependencies
-node_modules
+# Frontend Dependencies
+frontend/node_modules
 
 # Build output
-dist
-build
+frontend/dist
+frontend/build
 
 # Environment variables
 .env
