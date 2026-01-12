@@ -20,3 +20,13 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Python Backend
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/.pytest_cache/
+backend/despensa.db
+backend/chroma_db/
+backend/.env
