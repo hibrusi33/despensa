@@ -1,14 +1,12 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+from beanie import PydanticObjectId
 
-from app.database import init_db, get_db
-from app.models import InventoryItem, Recipe, RecipeIngredient, NutritionalInfo, ChatMessage
+from app.database import init_db, close_db
+from app.models import InventoryItem, Recipe, ChatMessage
 from app.rag_system import rag_system
 
 app = FastAPI(title="Despensa API", version="1.0.0")
@@ -50,31 +48,33 @@ async def startup_event():
     await init_db()
     print("✅ Database initialized")
 
-    # Initialize RAG system with a database session
-    async for db in get_db():
-        await rag_system.initialize_vectorstore(db)
-        break
+    # Initialize RAG system
+    await rag_system.initialize_vectorstore()
     print("✅ RAG system initialized")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Close database connection"""
+    await close_db()
 
 # Health check
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "Despensa API is running"}
+    return {"status": "ok", "message": "Despensa API is running with MongoDB"}
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "database": "MongoDB"}
 
 # ===== INVENTORY ENDPOINTS =====
 
 @app.get("/api/inventory")
-async def get_inventory(db: AsyncSession = Depends(get_db)):
+async def get_inventory():
     """Get all inventory items"""
-    result = await db.execute(select(InventoryItem))
-    items = result.scalars().all()
+    items = await InventoryItem.find_all().to_list()
     return [
         {
-            "id": item.id,
+            "id": str(item.id),
             "name": item.name,
             "qty": item.qty,
             "expiry": item.expiry,
@@ -84,14 +84,12 @@ async def get_inventory(db: AsyncSession = Depends(get_db)):
     ]
 
 @app.post("/api/inventory")
-async def create_inventory_item(item: InventoryItemCreate, db: AsyncSession = Depends(get_db)):
+async def create_inventory_item(item: InventoryItemCreate):
     """Add item to inventory"""
     db_item = InventoryItem(**item.dict())
-    db.add(db_item)
-    await db.commit()
-    await db.refresh(db_item)
+    await db_item.insert()
     return {
-        "id": db_item.id,
+        "id": str(db_item.id),
         "name": db_item.name,
         "qty": db_item.qty,
         "expiry": db_item.expiry,
@@ -99,28 +97,23 @@ async def create_inventory_item(item: InventoryItemCreate, db: AsyncSession = De
     }
 
 @app.put("/api/inventory/{item_id}")
-async def update_inventory_item(
-    item_id: int,
-    item_update: InventoryItemUpdate,
-    db: AsyncSession = Depends(get_db)
-):
+async def update_inventory_item(item_id: str, item_update: InventoryItemUpdate):
     """Update inventory item"""
-    result = await db.execute(select(InventoryItem).where(InventoryItem.id == item_id))
-    db_item = result.scalar_one_or_none()
+    db_item = await InventoryItem.get(PydanticObjectId(item_id))
 
     if not db_item:
         raise HTTPException(status_code=404, detail="Item not found")
 
     # Update fields
-    for field, value in item_update.dict(exclude_unset=True).items():
+    update_data = item_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
         setattr(db_item, field, value)
 
     db_item.updated_at = datetime.utcnow()
-    await db.commit()
-    await db.refresh(db_item)
+    await db_item.save()
 
     return {
-        "id": db_item.id,
+        "id": str(db_item.id),
         "name": db_item.name,
         "qty": db_item.qty,
         "expiry": db_item.expiry,
@@ -128,71 +121,52 @@ async def update_inventory_item(
     }
 
 @app.delete("/api/inventory/{item_id}")
-async def delete_inventory_item(item_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_inventory_item(item_id: str):
     """Delete inventory item"""
-    result = await db.execute(select(InventoryItem).where(InventoryItem.id == item_id))
-    db_item = result.scalar_one_or_none()
+    db_item = await InventoryItem.get(PydanticObjectId(item_id))
 
     if not db_item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    await db.delete(db_item)
-    await db.commit()
+    await db_item.delete()
     return {"message": "Item deleted successfully"}
 
 # ===== RECIPES ENDPOINTS =====
 
 @app.get("/api/recipes")
-async def get_recipes(db: AsyncSession = Depends(get_db)):
+async def get_recipes():
     """Get all recipes"""
-    result = await db.execute(
-        select(Recipe).options(
-            selectinload(Recipe.ingredients),
-            selectinload(Recipe.nutrition)
-        )
-    )
-    recipes = result.scalars().all()
+    recipes = await Recipe.find_all().to_list()
 
     return [
         {
-            "id": recipe.id,
+            "id": str(recipe.id),
             "name": recipe.name,
             "description": recipe.description,
             "cooking_time": recipe.cooking_time,
             "difficulty": recipe.difficulty,
             "servings": recipe.servings,
-            "ingredients": [
-                {
-                    "name": ing.ingredient_name,
-                    "quantity": ing.quantity,
-                    "is_optional": bool(ing.is_optional)
-                }
-                for ing in recipe.ingredients
-            ],
-            "nutrition": {
-                "calories": recipe.nutrition.calories,
-                "proteins": recipe.nutrition.proteins,
-                "carbs": recipe.nutrition.carbs,
-                "fats": recipe.nutrition.fats
-            } if recipe.nutrition else None
+            "ingredients": recipe.ingredients,
+            "nutrition": recipe.nutrition,
+            "estimated_price": recipe.estimated_price,
+            "equipment": recipe.equipment
         }
         for recipe in recipes
     ]
 
 @app.get("/api/recipes/suggested")
-async def get_suggested_recipes(db: AsyncSession = Depends(get_db)):
+async def get_suggested_recipes():
     """Get recipes suggested based on current inventory"""
-    matching_recipes = await rag_system.find_matching_recipes(db)
+    matching_recipes = await rag_system.find_matching_recipes()
     return matching_recipes
 
 # ===== CHAT ENDPOINTS =====
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
+async def chat(request: ChatRequest):
     """Chat with AI assistant"""
     # Get AI response
     response = await rag_system.chat(
-        db,
         request.message,
         request.conversation_history
     )
@@ -201,12 +175,11 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     user_msg = ChatMessage(role="user", content=request.message)
     assistant_msg = ChatMessage(role="assistant", content=response)
 
-    db.add(user_msg)
-    db.add(assistant_msg)
-    await db.commit()
+    await user_msg.insert()
+    await assistant_msg.insert()
 
     # Get suggested recipes
-    suggested_recipes = await rag_system.find_matching_recipes(db, request.message)
+    suggested_recipes = await rag_system.find_matching_recipes(request.message)
 
     return {
         "response": response,
@@ -214,16 +187,13 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     }
 
 @app.get("/api/chat/history")
-async def get_chat_history(limit: int = 20, db: AsyncSession = Depends(get_db)):
+async def get_chat_history(limit: int = 20):
     """Get chat history"""
-    result = await db.execute(
-        select(ChatMessage).order_by(ChatMessage.created_at.desc()).limit(limit)
-    )
-    messages = result.scalars().all()
+    messages = await ChatMessage.find_all().sort("-created_at").limit(limit).to_list()
 
     return [
         {
-            "id": msg.id,
+            "id": str(msg.id),
             "role": msg.role,
             "content": msg.content,
             "created_at": msg.created_at.isoformat()
@@ -234,9 +204,9 @@ async def get_chat_history(limit: int = 20, db: AsyncSession = Depends(get_db)):
 # ===== ADMIN ENDPOINTS =====
 
 @app.post("/api/admin/reindex")
-async def reindex_recipes(db: AsyncSession = Depends(get_db)):
+async def reindex_recipes():
     """Re-index all recipes in vector database"""
-    await rag_system.reindex_recipes(db)
+    await rag_system.reindex_recipes()
     return {"message": "Recipes re-indexed successfully"}
 
 if __name__ == "__main__":

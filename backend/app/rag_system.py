@@ -3,11 +3,10 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import Chroma
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from .models import Recipe, RecipeIngredient, NutritionalInfo, InventoryItem
-from typing import List, Dict
+from .models import Recipe, InventoryItem
+from typing import List, Dict, Optional
 import os
+
 
 class RAGSystem:
     def __init__(self):
@@ -24,7 +23,7 @@ class RAGSystem:
         # Modelo Ollama
         self.model_name = "llama3.1:8b"
 
-    async def initialize_vectorstore(self, db: AsyncSession):
+    async def initialize_vectorstore(self):
         """Inicializa o carga el vectorstore con las recetas"""
         if os.path.exists(self.persist_directory):
             # Cargar vectorstore existente
@@ -35,25 +34,23 @@ class RAGSystem:
             print("✅ Vectorstore cargado desde disco")
         else:
             # Crear nuevo vectorstore
-            await self.index_recipes(db)
+            await self.index_recipes()
             print("✅ Vectorstore creado y guardado")
 
-    async def index_recipes(self, db: AsyncSession):
+    async def index_recipes(self):
         """Indexa todas las recetas en el vectorstore"""
-        # Obtener todas las recetas con sus ingredientes y nutrición
-        result = await db.execute(
-            select(Recipe).options(
-                selectinload(Recipe.ingredients),
-                selectinload(Recipe.nutrition)
-            )
-        )
-        recipes = result.scalars().all()
+        # Obtener todas las recetas de MongoDB
+        recipes = await Recipe.find_all().to_list()
+
+        if not recipes:
+            print("⚠️ No hay recetas para indexar")
+            return
 
         documents = []
         for recipe in recipes:
             # Crear documento con toda la información
             ingredients_text = ", ".join([
-                f"{ing.quantity} de {ing.ingredient_name}"
+                f"{ing.get('quantity', '')} de {ing.get('name', '')}"
                 for ing in recipe.ingredients
             ])
 
@@ -61,10 +58,19 @@ class RAGSystem:
             if recipe.nutrition:
                 n = recipe.nutrition
                 nutrition_text = (
-                    f"Por porción: {n.calories} kcal, "
-                    f"{n.proteins}g proteínas, {n.carbs}g carbohidratos, "
-                    f"{n.fats}g grasas"
+                    f"Por porción: {n.get('calories', 0)} kcal, "
+                    f"{n.get('proteins', 0)}g proteínas, {n.get('carbs', 0)}g carbohidratos, "
+                    f"{n.get('fats', 0)}g grasas"
                 )
+
+            # Incluir utensilios si existen
+            equipment_text = ""
+            if recipe.equipment:
+                equipment_list = [
+                    f"{eq.get('primary', '')} (alt: {', '.join(eq.get('alternatives', []))})"
+                    for eq in recipe.equipment
+                ]
+                equipment_text = f"Utensilios: {', '.join(equipment_list)}"
 
             content = (
                 f"Receta: {recipe.name}\n"
@@ -74,16 +80,18 @@ class RAGSystem:
                 f"Dificultad: {recipe.difficulty}\n"
                 f"Porciones: {recipe.servings}\n"
                 f"Información nutricional: {nutrition_text}\n"
+                f"{equipment_text}\n"
                 f"Instrucciones: {recipe.instructions}"
             )
 
             documents.append(Document(
                 page_content=content,
                 metadata={
-                    "recipe_id": recipe.id,
+                    "recipe_id": str(recipe.id),
                     "recipe_name": recipe.name,
                     "cooking_time": recipe.cooking_time,
-                    "difficulty": recipe.difficulty
+                    "difficulty": recipe.difficulty,
+                    "estimated_price": recipe.estimated_price or 0
                 }
             ))
 
@@ -101,11 +109,11 @@ class RAGSystem:
             persist_directory=self.persist_directory
         )
         self.vectorstore.persist()
+        print(f"✅ Indexadas {len(recipes)} recetas en ChromaDB")
 
-    async def get_user_inventory(self, db: AsyncSession) -> List[Dict]:
+    async def get_user_inventory(self) -> List[Dict]:
         """Obtiene el inventario actual del usuario"""
-        result = await db.execute(select(InventoryItem))
-        items = result.scalars().all()
+        items = await InventoryItem.find_all().to_list()
         return [
             {
                 "name": item.name,
@@ -116,9 +124,13 @@ class RAGSystem:
             for item in items
         ]
 
-    async def find_matching_recipes(self, db: AsyncSession, query: str = None) -> List[Dict]:
+    async def find_matching_recipes(self, query: Optional[str] = None) -> List[Dict]:
         """Encuentra recetas que coincidan con el inventario del usuario"""
-        inventory = await self.get_user_inventory(db)
+        if not self.vectorstore:
+            print("⚠️ Vectorstore no inicializado")
+            return []
+
+        inventory = await self.get_user_inventory()
 
         if not inventory:
             return []
@@ -128,37 +140,42 @@ class RAGSystem:
         search_query = query if query else f"Recetas con {', '.join(available_ingredients[:5])}"
 
         # Buscar recetas similares
-        results = self.vectorstore.similarity_search_with_score(
-            search_query,
-            k=5  # Top 5 recetas
-        )
+        try:
+            results = self.vectorstore.similarity_search_with_score(
+                search_query,
+                k=5  # Top 5 recetas
+            )
 
-        matching_recipes = []
-        for doc, score in results:
-            matching_recipes.append({
-                "recipe_id": doc.metadata.get("recipe_id"),
-                "recipe_name": doc.metadata.get("recipe_name"),
-                "content": doc.page_content,
-                "similarity_score": float(score),
-                "cooking_time": doc.metadata.get("cooking_time"),
-                "difficulty": doc.metadata.get("difficulty")
-            })
+            matching_recipes = []
+            for doc, score in results:
+                matching_recipes.append({
+                    "recipe_id": doc.metadata.get("recipe_id"),
+                    "recipe_name": doc.metadata.get("recipe_name"),
+                    "content": doc.page_content,
+                    "similarity_score": float(score),
+                    "cooking_time": doc.metadata.get("cooking_time"),
+                    "difficulty": doc.metadata.get("difficulty"),
+                    "estimated_price": doc.metadata.get("estimated_price")
+                })
 
-        return matching_recipes
+            return matching_recipes
+        except Exception as e:
+            print(f"❌ Error en búsqueda vectorial: {e}")
+            return []
 
-    async def chat(self, db: AsyncSession, user_message: str, conversation_history: List[Dict] = None) -> str:
+    async def chat(self, user_message: str, conversation_history: Optional[List[Dict]] = None) -> str:
         """Procesa mensaje del usuario con contexto RAG"""
         # Obtener inventario
-        inventory = await self.get_user_inventory(db)
+        inventory = await self.get_user_inventory()
         inventory_text = "\n".join([
             f"- {item['name']}: {item['qty']} unidades (Categoría: {item['category']})"
             for item in inventory
         ])
 
         # Buscar recetas relevantes
-        matching_recipes = await self.find_matching_recipes(db, user_message)
+        matching_recipes = await self.find_matching_recipes(user_message)
         recipes_context = "\n\n".join([
-            f"**{r['recipe_name']}** (Tiempo: {r['cooking_time']}min, Dificultad: {r['difficulty']})\n{r['content']}"
+            f"**{r['recipe_name']}** (Tiempo: {r['cooking_time']}min, Dificultad: {r['difficulty']}, Precio estimado: {r.get('estimated_price', 0)}€)\n{r['content']}"
             for r in matching_recipes[:3]  # Top 3
         ])
 
@@ -177,6 +194,7 @@ Tu trabajo es:
 3. Ayudar a planificar comidas
 4. Avisar sobre productos próximos a caducar
 5. Dar consejos sobre cocina y conservación de alimentos
+6. Recomendar utensilios alternativos si es necesario
 
 Responde en español de forma amigable y concisa."""
 
@@ -203,7 +221,7 @@ Responde en español de forma amigable y concisa."""
         except Exception as e:
             return f"Error al comunicar con el modelo: {str(e)}"
 
-    async def reindex_recipes(self, db: AsyncSession):
+    async def reindex_recipes(self):
         """Re-indexa todas las recetas (útil después de añadir nuevas)"""
         # Borrar vectorstore existente
         if os.path.exists(self.persist_directory):
@@ -211,8 +229,9 @@ Responde en español de forma amigable y concisa."""
             shutil.rmtree(self.persist_directory)
 
         # Crear nuevo índice
-        await self.index_recipes(db)
+        await self.index_recipes()
         print("✅ Recetas re-indexadas correctamente")
+
 
 # Instancia global
 rag_system = RAGSystem()

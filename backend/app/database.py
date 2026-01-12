@@ -1,34 +1,48 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from .models import Base
+from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
+from .models import InventoryItem, Recipe, ChatMessage
 import os
 
-# Database URL
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./despensa.db")
+# MongoDB configuration
+MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "despensa")
 
-# Create async engine
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=True,  # Set to False in production
-    future=True
-)
+# Global client
+client = None
 
-# Async session
-AsyncSessionLocal = sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
 
 async def init_db():
-    """Initialize database tables"""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Initialize MongoDB connection and Beanie ODM"""
+    global client
 
-async def get_db():
-    """Dependency for getting database sessions"""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+    # Create Motor client
+    client = AsyncIOMotorClient(MONGODB_URL)
+
+    # Initialize Beanie with Document models
+    await init_beanie(
+        database=client[MONGODB_DB_NAME],
+        document_models=[
+            InventoryItem,
+            Recipe,
+            ChatMessage
+        ]
+    )
+
+    print(f"✅ Connected to MongoDB: {MONGODB_URL}/{MONGODB_DB_NAME}")
+
+
+async def close_db():
+    """Close MongoDB connection"""
+    global client
+    if client:
+        client.close()
+        print("✅ MongoDB connection closed")
+
+
+# Helper function to get database
+def get_database():
+    """Get MongoDB database instance"""
+    global client
+    if not client:
+        raise Exception("Database not initialized. Call init_db() first.")
+    return client[MONGODB_DB_NAME]

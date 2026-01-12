@@ -1,72 +1,81 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, ForeignKey, JSON
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from beanie import Document
+from pydantic import Field
+from typing import Optional, List
 from datetime import datetime
 
-Base = declarative_base()
 
-class InventoryItem(Base):
+class InventoryItem(Document):
     """Productos en la despensa del usuario"""
-    __tablename__ = "inventory_items"
+    name: str
+    qty: int
+    expiry: Optional[str] = None  # Formato: YYYY-MM-DD
+    category: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True, nullable=False)
-    qty = Column(Integer, nullable=False)
-    expiry = Column(String, nullable=True)  # Formato: YYYY-MM-DD
-    category = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    class Settings:
+        name = "inventory_items"
+        indexes = [
+            "name",
+            "category",
+            "expiry"
+        ]
 
-class Recipe(Base):
+
+class RecipeIngredient(Document):
+    """Ingredientes de cada receta (embedded)"""
+    ingredient_name: str
+    quantity: str  # Ej: "200g", "2 unidades"
+    is_optional: bool = False
+
+
+class NutritionalInfo(Document):
+    """Información nutricional por porción (embedded)"""
+    calories: float
+    proteins: float  # Gramos
+    carbs: float  # Gramos
+    fats: float  # Gramos
+    fiber: Optional[float] = None  # Gramos
+    sodium: Optional[float] = None  # Miligramos
+
+
+class Recipe(Document):
     """Recetas disponibles"""
-    __tablename__ = "recipes"
+    name: str
+    description: str
+    instructions: str
+    cooking_time: int  # Minutos
+    difficulty: str  # Fácil, Media, Difícil
+    servings: int
+    image_url: Optional[str] = None
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True, nullable=False)
-    description = Column(Text, nullable=False)
-    instructions = Column(Text, nullable=False)
-    cooking_time = Column(Integer, nullable=False)  # Minutos
-    difficulty = Column(String, nullable=False)  # Fácil, Media, Difícil
-    servings = Column(Integer, nullable=False)
-    image_url = Column(String, nullable=True)
+    # Subdocumentos embebidos
+    ingredients: List[dict] = []  # Lista de ingredientes como dict
+    nutrition: Optional[dict] = None  # Info nutricional como dict
 
-    # Relaciones
-    ingredients = relationship("RecipeIngredient", back_populates="recipe", cascade="all, delete-orphan")
-    nutrition = relationship("NutritionalInfo", back_populates="recipe", uselist=False, cascade="all, delete-orphan")
+    # Campos adicionales del scraping
+    estimated_price: Optional[float] = None
+    equipment: Optional[List[dict]] = None  # [{"primary": "Wok", "alternatives": ["Sartén"]}]
 
-class RecipeIngredient(Base):
-    """Ingredientes de cada receta"""
-    __tablename__ = "recipe_ingredients"
+    class Settings:
+        name = "recipes"
+        indexes = [
+            "name",
+            "difficulty",
+            "cooking_time"
+        ]
 
-    id = Column(Integer, primary_key=True, index=True)
-    recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=False)
-    ingredient_name = Column(String, nullable=False)
-    quantity = Column(String, nullable=False)  # Ej: "200g", "2 unidades"
-    is_optional = Column(Integer, default=0)  # 0=requerido, 1=opcional
 
-    recipe = relationship("Recipe", back_populates="ingredients")
-
-class NutritionalInfo(Base):
-    """Información nutricional por porción"""
-    __tablename__ = "nutritional_info"
-
-    id = Column(Integer, primary_key=True, index=True)
-    recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=False, unique=True)
-    calories = Column(Float, nullable=False)
-    proteins = Column(Float, nullable=False)  # Gramos
-    carbs = Column(Float, nullable=False)  # Gramos
-    fats = Column(Float, nullable=False)  # Gramos
-    fiber = Column(Float, nullable=True)  # Gramos
-    sodium = Column(Float, nullable=True)  # Miligramos
-
-    recipe = relationship("Recipe", back_populates="nutrition")
-
-class ChatMessage(Base):
+class ChatMessage(Document):
     """Historial de conversaciones del chatbot"""
-    __tablename__ = "chat_messages"
+    role: str  # 'user' o 'assistant'
+    content: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    session_id: Optional[str] = None  # Para agrupar conversaciones
 
-    id = Column(Integer, primary_key=True, index=True)
-    role = Column(String, nullable=False)  # 'user' o 'assistant'
-    content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    session_id = Column(String, nullable=True)  # Para agrupar conversaciones
+    class Settings:
+        name = "chat_messages"
+        indexes = [
+            "session_id",
+            "created_at"
+        ]
