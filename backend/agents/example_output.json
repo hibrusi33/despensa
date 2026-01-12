@@ -1,0 +1,162 @@
+{
+  "recipes": [
+    {
+      "name": "Tortilla Española de Patatas",
+      "description": "La clásica tortilla española con patatas y cebolla, jugosa por dentro y dorada por fuera",
+      "instructions": "1. Pela las patatas y córtalas en rodajas finas de unos 2-3mm\n2. Pela y corta la cebolla en juliana fina\n3. En una sartén grande, calienta abundante aceite de oliva a fuego medio\n4. Fríe las patatas junto con la cebolla durante 15-20 minutos hasta que estén tiernas pero no doradas\n5. Escurre bien el aceite y reserva las patatas\n6. Bate los huevos en un bol grande con una pizca de sal\n7. Mezcla las patatas calientes con los huevos batidos\n8. En una sartén antiadherente con un poco de aceite caliente, vierte la mezcla\n9. Cocina a fuego medio-bajo durante 5 minutos\n10. Coloca un plato grande sobre la sartén y dale la vuelta a la tortilla\n11. Desliza de nuevo a la sartén y cocina otros 3-4 minutos\n12. Deja reposar 5 minutos antes de servir",
+      "cooking_time": 35,
+      "difficulty": "Media",
+      "servings": 4,
+      "ingredients": [
+        {
+          "name": "Patatas",
+          "quantity": "4 unidades grandes (800g aprox)",
+          "is_optional": false
+        },
+        {
+          "name": "Huevos",
+          "quantity": "6 unidades grandes",
+          "is_optional": false
+        },
+        {
+          "name": "Cebolla",
+          "quantity": "1 unidad mediana",
+          "is_optional": true
+        },
+        {
+          "name": "Aceite de oliva",
+          "quantity": "300ml para freír",
+          "is_optional": false
+        },
+        {
+          "name": "Sal",
+          "quantity": "al gusto",
+          "is_optional": false
+        }
+      ],
+      "nutrition": {
+        "calories": 320.0,
+        "proteins": 14.5,
+        "carbs": 24.0,
+        "fats": 19.0,
+        "fiber": 2.5,
+        "sodium": 380.0
+      },
+      "estimated_price": 3.50,
+      "equipment": [
+        {
+          "primary": "Sartén antiadherente de 24-26cm",
+          "alternatives": [
+            "Sartén de hierro fundido",
+            "Sartén normal (engrasada generosamente)"
+          ]
+        },
+        {
+          "primary": "Plato grande plano",
+          "alternatives": [
+            "Tapa de sartén del mismo tamaño",
+            "Tabla de cortar redonda"
+          ]
+        },
+        {
+          "primary": "Cuchillo de cocina",
+          "alternatives": [
+            "Mandolina para cortar patatas uniformemente"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ensalada César Saludable",
+      "description": "Versión ligera y nutritiva de la clásica ensalada césar con pollo a la plancha",
+      "instructions": "1. Lava y seca la lechuga romana, córtala en trozos grandes\n2. Sazona el pollo con sal, pimienta y un poco de ajo en polvo\n3. Cocina el pollo a la plancha 6-7 minutos por lado hasta que esté bien cocido\n4. Déjalo reposar 5 minutos y córtalo en tiras\n5. Prepara la salsa césar: mezcla yogur griego, mostaza, ajo picado, zumo de limón, anchoas y queso parmesano\n6. Corta el pan en cubos pequeños y tuéstalos en el horno a 180°C durante 10 minutos\n7. En un bol grande, mezcla la lechuga con la salsa césar\n8. Añade el pollo en tiras por encima\n9. Espolvorea con croutones, parmesano rallado y pimienta negra\n10. Sirve inmediatamente",
+      "cooking_time": 25,
+      "difficulty": "Fácil",
+      "servings": 2,
+      "ingredients": [
+        {
+          "name": "Pechuga de pollo",
+          "quantity": "300g",
+          "is_optional": false
+        },
+        {
+          "name": "Lechuga romana",
+          "quantity": "1 unidad grande",
+          "is_optional": false
+        },
+        {
+          "name": "Pan del día anterior",
+          "quantity": "100g",
+          "is_optional": false
+        },
+        {
+          "name": "Queso parmesano",
+          "quantity": "50g",
+          "is_optional": false
+        },
+        {
+          "name": "Yogur griego natural",
+          "quantity": "100ml",
+          "is_optional": false
+        },
+        {
+          "name": "Mostaza de Dijon",
+          "quantity": "1 cucharadita",
+          "is_optional": false
+        },
+        {
+          "name": "Ajo",
+          "quantity": "2 dientes",
+          "is_optional": false
+        },
+        {
+          "name": "Limón",
+          "quantity": "1 unidad (zumo)",
+          "is_optional": false
+        },
+        {
+          "name": "Anchoas",
+          "quantity": "3-4 filetes",
+          "is_optional": true
+        },
+        {
+          "name": "Aceite de oliva",
+          "quantity": "2 cucharadas",
+          "is_optional": false
+        }
+      ],
+      "nutrition": {
+        "calories": 445.0,
+        "proteins": 38.0,
+        "carbs": 22.0,
+        "fats": 24.0,
+        "fiber": 3.5,
+        "sodium": 890.0
+      },
+      "estimated_price": 6.80,
+      "equipment": [
+        {
+          "primary": "Plancha o sartén antiadherente",
+          "alternatives": [
+            "Parrilla",
+            "Sartén de hierro",
+            "Horno (180°C, 20 min)"
+          ]
+        },
+        {
+          "primary": "Bol grande para ensalada",
+          "alternatives": [
+            "Ensaladera",
+            "Recipiente grande"
+          ]
+        },
+        {
+          "primary": "Bandeja de horno para croutones",
+          "alternatives": [
+            "Sartén para tostar el pan"
+          ]
+        }
+      ]
+    }
+  ]
+}
