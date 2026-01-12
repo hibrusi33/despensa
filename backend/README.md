@@ -60,9 +60,29 @@ venv\Scripts\activate
 
 ### 2. Instalar dependencias
 
+#### Linux/Mac:
 ```bash
 pip install -r requirements.txt
 ```
+
+#### Windows (recomendado - usar script automático):
+```powershell
+# Opción 1: PowerShell
+.\install-windows.ps1
+
+# Opción 2: Command Prompt
+install-windows.bat
+
+# Opción 3: Manual
+python -m pip install --upgrade pip
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements-windows.txt
+```
+
+**Nota Windows**: Si encuentras errores de compilación (numpy, pydantic-core), asegúrate de:
+1. Actualizar pip primero: `python -m pip install --upgrade pip`
+2. Instalar PyTorch antes (incluye numpy pre-compilado)
+3. Usar `requirements-windows.txt` en lugar de `requirements.txt`
 
 Esto instalará:
 - FastAPI y Uvicorn
